@@ -1,0 +1,47 @@
+name:           snaplet-session-memory
+version:        0.1
+synopsis:       Simple IORef-backed HTTP sessions for Snap
+license:        MPL-2.0
+license-file:   LICENSE
+author:         Shane O'Brien
+maintainer:     shane@duairc.com
+stability:      Experimental
+category:       Web
+cabal-version:  >= 1.6
+build-type:     Simple
+homepage:       https://github.com/duairc/snaplet-session-memory
+bug-reports:    https://github.com/duairc/snaplet-session-memory/issues
+
+extra-source-files:
+  LICENSE
+
+library
+  hs-source-dirs:
+    src
+
+  exposed-modules:
+    Snap.Snaplet.MSession
+    Snap.Snaplet.Session.Backends.Memory
+
+  other-modules:
+    Data.TimeoutMap
+    Snap.Snaplet.MSession.Internal
+
+  build-depends:
+    base,
+    bytestring,
+    hashable,
+    mtl,
+    snap,
+    snap-core,
+    text,
+    time,
+    transformers,
+    unordered-containers,
+    uuid
+
+  ghc-options: -Wall
+
+source-repository head
+  type:     git
+  location: https://github.com/duairc/snaplet-session-memory.git
