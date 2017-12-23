@@ -82,7 +82,7 @@ getSession = I.get <$> loadSession
 
 ------------------------------------------------------------------------------
 putSession :: a -> NominalDiffTime -> Handler b (MSession a) ()
-putSession a timeout = withSession (I.renew timeout . I.put a)
+putSession a timeout = withSession (I.renew timeout . I.put a . I.reset)
 
 
 ------------------------------------------------------------------------------
