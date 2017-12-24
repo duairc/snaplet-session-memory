@@ -120,13 +120,12 @@ instance ISessionManager MemorySessionManager where
 initMemorySessionMananger
     :: ByteString -- ^ Cookie name
     -> Maybe ByteString -- ^ Cookie domain
-    -> Maybe ByteString -- ^ Cookie path
     -> Maybe NominalDiffTime -- ^ Cookie timeout
     -> SnapletInit b SessionManager
-initMemorySessionMananger key domain path mtimeout =
+initMemorySessionMananger key domain mtimeout =
     makeSnaplet "MemorySession" description Nothing $ liftIO $ do
         rng <- liftIO mkRNG
-        config <- liftIO $ I.init key domain path
+        config <- liftIO $ I.init key domain
         pure $ SessionManager $ MemorySessionManager Nothing config timeout rng
   where
     timeout = maybe 86400 id mtimeout

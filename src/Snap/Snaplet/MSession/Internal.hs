@@ -62,7 +62,6 @@ import           Data.UUID.V4 (nextRandom)
 data Config a = Config
     { _cookie :: !ByteString
     , _domain :: !(Maybe ByteString)
-    , _path :: !(Maybe ByteString)
     , _sessions :: !(IORef (TimeoutMap UUID a))
     }
 
@@ -78,11 +77,11 @@ data Session a = Session
 
 
 ------------------------------------------------------------------------------
-init :: ByteString -> Maybe ByteString -> Maybe ByteString -> IO (Config a)
-init key domain path = do
+init :: ByteString -> Maybe ByteString -> IO (Config a)
+init key domain = do
     sessions <- newIORef mempty
     _ <- forkIO (go sessions)
-    pure $ Config key domain path sessions
+    pure $ Config key domain sessions
   where
     go sessions = forever $ do
         threadDelay 600000000
@@ -92,7 +91,7 @@ init key domain path = do
 
 ------------------------------------------------------------------------------
 load :: Config a -> Snap (Session a)
-load (Config key domain path sessions) = do
+load (Config key domain sessions) = do
     now <- liftIO getCurrentTime
     muuid <- viewCookie key
     case muuid of
@@ -102,7 +101,7 @@ load (Config key domain path sessions) = do
                 TO.lookup uuid now
             case mpayload of
                 Nothing -> do
-                    unsetCookie key domain path
+                    unsetCookie key domain
                     pure $ Session now Nothing Nothing Nothing
                 Just _ -> pure $ Session now muuid Nothing mpayload
 
@@ -112,16 +111,16 @@ commit :: Config a -> Session a -> Snap ()
 commit config session = go mpayload muuid
   where
     Session now muuid mtimeout mpayload = session
-    Config key domain path sessions = config
+    Config key domain sessions = config
     go Nothing Nothing = pure ()
     go Nothing (Just uuid) = do
         liftIO $ atomicModifyIORef' sessions $ (, ()) . TO.delete uuid now
-        unsetCookie key domain path
+        unsetCookie key domain
     go (Just payload) Nothing = do
         uuid <- liftIO nextRandom
         expiry <- liftIO $ atomicModifyIORef' sessions $
             TO.insert payload timeout uuid now
-        setCookie key domain path uuid expiry
+        setCookie key domain uuid expiry
       where
         timeout = maybe 86400 id mtimeout
     go (Just payload) (Just uuid) = do
@@ -129,7 +128,7 @@ commit config session = go mpayload muuid
             TO.adjust (\_ -> (payload, mtimeout)) uuid now
         for_ mexpiry $ \expiry -> for mtimeout $ \timeout ->
             when (expiry < addUTCTime timeout now) $
-                setCookie key domain path uuid expiry
+                setCookie key domain uuid expiry
 
 
 ------------------------------------------------------------------------------
@@ -174,21 +173,20 @@ viewCookie key = runMaybeT $ do
 
 
 ------------------------------------------------------------------------------
-setCookie :: ByteString -> Maybe ByteString -> Maybe ByteString -> UUID
-    -> UTCTime -> Snap ()
-setCookie key domain path uuid time =
+setCookie :: ByteString -> Maybe ByteString -> UUID -> UTCTime -> Snap ()
+setCookie key domain uuid time =
     modifyResponse $ addResponseCookie cookie
   where
-    cookie = Cookie key value (Just time) domain path True True
+    cookie = Cookie key value (Just time) domain (Just "/") True True
     value = UUID.toASCIIBytes uuid
 
 
 ------------------------------------------------------------------------------
-unsetCookie :: ByteString -> Maybe ByteString -> Maybe ByteString -> Snap ()
-unsetCookie key domain path = do
+unsetCookie :: ByteString -> Maybe ByteString -> Snap ()
+unsetCookie key domain = do
     (cookies, without) <- partition ((== key) . cookieName)
         <$> getsRequest rqCookies
     modifyRequest $ \rq -> rq {rqCookies = without}
     unless (null cookies) $ expireCookie cookie
   where
-    cookie = Cookie key mempty Nothing domain path False False
+    cookie = Cookie key mempty Nothing domain (Just "/") False False

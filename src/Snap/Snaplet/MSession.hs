@@ -44,10 +44,9 @@ data MSession a = MSession
 
 
 ------------------------------------------------------------------------------
-initMSession :: ByteString -> Maybe ByteString -> Maybe ByteString
-    -> SnapletInit b (MSession a)
-initMSession key domain path = makeSnaplet "MSession" description Nothing $ do
-    config <- liftIO $ I.init key domain path
+initMSession :: ByteString -> Maybe ByteString -> SnapletInit b (MSession a)
+initMSession key domain = makeSnaplet "MSession" description Nothing $ do
+    config <- liftIO $ I.init key domain
     pure $ MSession Nothing config
   where
     description = "A snaplet providing HTTP sessions backed by an IORef."
