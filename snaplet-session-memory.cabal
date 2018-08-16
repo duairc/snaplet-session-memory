@@ -28,7 +28,7 @@ library
     Snap.Snaplet.MSession.Internal
 
   build-depends:
-    base,
+    base < 5,
     bytestring,
     hashable,
     mtl,
