@@ -70,7 +70,7 @@ withSession f = do
     session <- loadSession
     config <- asks _config
     let session' = f session
-    put $ MSession (Just session) config
+    put $ MSession (Just session') config
     liftSnap $ I.commit config session'
 
 
