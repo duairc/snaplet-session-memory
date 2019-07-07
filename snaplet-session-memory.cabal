@@ -24,7 +24,6 @@ library
     Snap.Snaplet.Session.Backends.Memory
 
   other-modules:
-    Data.TimeoutMap
     Snap.Snaplet.MSession.Internal
 
   build-depends:
@@ -36,6 +35,7 @@ library
     snap-core,
     text,
     time,
+    timeoutmap,
     transformers,
     unordered-containers,
     uuid
