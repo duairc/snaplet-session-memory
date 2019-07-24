@@ -5,7 +5,9 @@
 {-# LANGUAGE TupleSections #-}
 
 module Snap.Snaplet.MSession.Internal
-    ( Config, Session, init, load, commit, reset, renew, get, put, modify
+    ( Config, Session, init, load, commit, reset, renew
+    , get, read
+    , put, modify
     )
 where
 
@@ -18,11 +20,15 @@ import           Data.Foldable (for_)
 import           Data.IORef (IORef, newIORef, atomicModifyIORef')
 import           Data.List (partition)
 import           Data.Traversable (for)
-import           Prelude hiding (init)
+import           Prelude hiding (init, read)
 
 
 -- bytestring ----------------------------------------------------------------
 import           Data.ByteString (ByteString)
+
+
+-- semigroupoids -------------------------------------------------------------
+import           Data.Functor.Plus (zero)
 
 
 -- snap-core -----------------------------------------------------------------
@@ -79,7 +85,7 @@ data Session a = Session
 ------------------------------------------------------------------------------
 init :: ByteString -> Maybe ByteString -> IO (Config a)
 init key domain = do
-    sessions <- newIORef mempty
+    sessions <- newIORef zero
     _ <- forkIO (go sessions)
     pure $ Config key domain sessions
   where
@@ -97,13 +103,14 @@ load (Config key domain sessions) = do
     case muuid of
         Nothing -> pure $ Session now Nothing Nothing Nothing
         Just uuid -> do
-            mpayload <- liftIO $ atomicModifyIORef' sessions $
-                TO.lookup uuid now
+            mpayload <- liftIO $ atomicModifyIORef' sessions $ (,) <*>
+                TO.lookup now uuid
             case mpayload of
                 Nothing -> do
                     unsetCookie key domain
                     pure $ Session now Nothing Nothing Nothing
-                Just _ -> pure $ Session now muuid Nothing mpayload
+                Just (timeout, payload) -> pure $
+                    Session now muuid (pure timeout) (pure payload)
 
 
 ------------------------------------------------------------------------------
@@ -114,21 +121,22 @@ commit config session = go mpayload muuid
     Config key domain sessions = config
     go Nothing Nothing = pure ()
     go Nothing (Just uuid) = do
-        liftIO $ atomicModifyIORef' sessions $ (, ()) . TO.delete uuid now
+        liftIO $ atomicModifyIORef' sessions $ (, ()) . TO.delete now uuid
         unsetCookie key domain
     go (Just payload) Nothing = do
         uuid <- liftIO nextRandom
-        expiry <- liftIO $ atomicModifyIORef' sessions $
-            TO.insert payload timeout uuid now
+        timeout' <- liftIO $ atomicModifyIORef' sessions $
+            TO.insert timeout payload now uuid
+        let expiry = addUTCTime timeout' now
         setCookie key domain uuid expiry
       where
         timeout = maybe 86400 id mtimeout
     go (Just payload) (Just uuid) = do
-        mexpiry <- liftIO $ atomicModifyIORef' sessions $
-            TO.adjust (\_ -> (payload, mtimeout)) uuid now
-        for_ mexpiry $ \expiry -> for mtimeout $ \timeout ->
-            when (expiry < addUTCTime timeout now) $
-                setCookie key domain uuid expiry
+        mtimeout' <- liftIO $ atomicModifyIORef' sessions $
+            TO.adjust (\_ -> (mtimeout, payload)) now uuid
+        for_ mtimeout' $ \timeout' -> for mtimeout $ \timeout -> do
+            let expiry = addUTCTime timeout' now
+            when (timeout' > timeout) $ setCookie key domain uuid expiry
 
 
 ------------------------------------------------------------------------------
@@ -145,6 +153,14 @@ renew timeout (Session now muuid _ mpayload) =
 ------------------------------------------------------------------------------
 get :: Session a -> Maybe a
 get = _payload
+
+
+------------------------------------------------------------------------------
+read :: Session a -> Maybe (a, UUID, UTCTime)
+read (Session now muuid mtimeout mpayload) = go <$> mpayload <*> muuid
+  where
+    go payload uuid = (payload, uuid, expiry)
+    expiry = addUTCTime (maybe 86400 id mtimeout) now
 
 
 ------------------------------------------------------------------------------

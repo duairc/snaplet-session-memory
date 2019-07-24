@@ -2,7 +2,8 @@
 
 module Snap.Snaplet.MSession
     ( MSession, initMSession
-    , getSession, putSession, setSession, renewSession, resetSession
+    , getSession, readSession
+    , putSession, setSession, renewSession, resetSession
     )
 where
 
@@ -33,7 +34,11 @@ import qualified Snap.Snaplet.MSession.Internal as I
 
 
 -- time ----------------------------------------------------------------------
-import           Data.Time.Clock (NominalDiffTime)
+import           Data.Time.Clock (NominalDiffTime, UTCTime)
+
+
+-- uuid ----------------------------------------------------------------------
+import           Data.UUID (UUID)
 
 
 ------------------------------------------------------------------------------
@@ -77,6 +82,11 @@ withSession f = do
 ------------------------------------------------------------------------------
 getSession :: Handler b (MSession a) (Maybe a)
 getSession = I.get <$> loadSession
+
+
+------------------------------------------------------------------------------
+readSession :: Handler b (MSession a) (Maybe (a, UUID, UTCTime))
+readSession = I.read <$> loadSession
 
 
 ------------------------------------------------------------------------------
