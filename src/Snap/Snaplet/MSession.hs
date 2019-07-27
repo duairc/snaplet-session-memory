@@ -37,10 +37,6 @@ import qualified Snap.Snaplet.MSession.Internal as I
 import           Data.Time.Clock (NominalDiffTime, UTCTime)
 
 
--- uuid ----------------------------------------------------------------------
-import           Data.UUID (UUID)
-
-
 ------------------------------------------------------------------------------
 data MSession a = MSession
     { _cache :: !(Maybe (Session a))
@@ -85,7 +81,7 @@ getSession = I.get <$> loadSession
 
 
 ------------------------------------------------------------------------------
-readSession :: Handler b (MSession a) (Maybe (a, UUID, UTCTime))
+readSession :: Handler b (MSession a) (Maybe (a, UTCTime))
 readSession = I.read <$> loadSession
 
 

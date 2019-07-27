@@ -156,10 +156,10 @@ get = _payload
 
 
 ------------------------------------------------------------------------------
-read :: Session a -> Maybe (a, UUID, UTCTime)
-read (Session now muuid mtimeout mpayload) = go <$> mpayload <*> muuid
+read :: Session a -> Maybe (a, UTCTime)
+read (Session now _ mtimeout mpayload) = go <$> mpayload
   where
-    go payload uuid = (payload, uuid, expiry)
+    go payload = (payload, expiry)
     expiry = addUTCTime (maybe 86400 id mtimeout) now
 
 
